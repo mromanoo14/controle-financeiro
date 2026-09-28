@@ -1,0 +1,44 @@
+# =========================================================
+# Python
+# =========================================================
+
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/**/**/*.pyc
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# =========================================================
+# Flutter
+# =========================================================
+
+controle_financeiro/.dart_tool/
+controle_financeiro/.idea/
+controle_financeiro/build/
+controle_financeiro/.flutter-plugins
+controle_financeiro/.flutter-plugins-dependencies
+controle_financeiro/.packages
+
+# =========================================================
+# VS Code
+# =========================================================
+
+.vscode/
+
+# =========================================================
+# Sistema operacional
+# =========================================================
+
+.DS_Store
+Thumbs.db
+
+# =========================================================
+# Logs
+# =========================================================
+
+*.log
