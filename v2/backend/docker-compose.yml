@@ -1,0 +1,32 @@
+# Ambiente local: `docker compose up --build`
+# API em http://localhost:8000/docs
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: financeiro
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-financeiro}
+      POSTGRES_DB: controle_financeiro
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U financeiro"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://financeiro:${POSTGRES_PASSWORD:-financeiro}@db:5432/controle_financeiro
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
