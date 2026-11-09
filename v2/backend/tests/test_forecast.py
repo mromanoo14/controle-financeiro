@@ -80,3 +80,20 @@ def test_budgets(client, auth, account):
     add(client, auth, account, "IFOOD", "120.00")
     budgets = client.get("/budgets", headers=auth).json()
     assert budgets[0]["spent"] == "120.00"
+
+
+def test_fixed_expense_not_double_counted_as_variable(client, auth, account):
+    """Aluguéis lançados antes de cadastrar a conta fixa não entram na média variável."""
+    moradia = category_id(client, auth, "Moradia")
+    today = date.today()
+    for i in range(1, 4):
+        y, m = today.year, today.month - i
+        while m <= 0:
+            m += 12
+            y -= 1
+        add(client, auth, account, "Aluguel apartamento", "1800.00", when=date(y, m, 10))
+    client.post("/recurrences", json={"description": "Aluguel", "amount": "1800.00", "category_id": moradia,
+                                      "start_date": date(today.year, today.month, 28).isoformat()}, headers=auth)
+    forecast = client.get("/forecast", headers=auth).json()[0]
+    row = next(c for c in forecast["by_category"] if c["name"] == "Moradia")
+    assert Decimal(row["variable"]) == 0

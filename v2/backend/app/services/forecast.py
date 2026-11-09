@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.models import Budget, Category, Recurrence, Transaction, TransactionKind, User
 from app.schemas import CategoryForecast, ForecastItem, MonthForecast
 from app.services import recurrence as rec_service
+from app.services.categorization import normalize
 from app.services.finance import ZERO, month_bounds, spent_by_category
 
 HISTORY_MONTHS = 3
@@ -28,44 +29,55 @@ def _q(value: Decimal) -> Decimal:
     return value.quantize(CENT, rounding=ROUND_HALF_UP)
 
 
+def _recurring_names(db: Session, user_id: int) -> list[str]:
+    names = db.scalars(
+        select(Recurrence.description).where(
+            Recurrence.user_id == user_id,
+            Recurrence.active.is_(True),
+            Recurrence.kind == TransactionKind.EXPENSE,
+        )
+    ).all()
+    return [n for n in (normalize(x) for x in names) if n]
+
+
+def _variable_totals(db: Session, user_id: int, start: date, end: date) -> dict[int | None, Decimal]:
+    """Soma por categoria dos gastos que NÃO são contas fixas.
+
+    Exclui lançamentos ligados a uma recorrência e também os parecidos com
+    alguma recorrência ativa (ex.: aluguéis lançados antes de cadastrar a conta
+    fixa), para não contar o mesmo gasto duas vezes na previsão.
+    """
+    names = _recurring_names(db, user_id)
+    rows = db.execute(
+        select(Transaction.category_id, Transaction.description, Transaction.amount).where(
+            Transaction.user_id == user_id,
+            Transaction.kind == TransactionKind.EXPENSE,
+            Transaction.recurrence_id.is_(None),
+            Transaction.date >= start,
+            Transaction.date <= end,
+        )
+    ).all()
+    totals: dict[int | None, Decimal] = defaultdict(lambda: ZERO)
+    for cid, description, amount in rows:
+        text = normalize(description)
+        if any(n in text or text in n for n in names):
+            continue
+        totals[cid] += Decimal(amount)
+    return totals
+
+
 def variable_monthly_average(db: Session, user_id: int, before: date) -> dict[int | None, Decimal]:
     """Média mensal de gastos não recorrentes por categoria nos meses anteriores a `before`."""
     first_tx = db.scalar(select(func.min(Transaction.date)).where(Transaction.user_id == user_id))
     if first_tx is None:
         return {}
     end = before.replace(day=1) - timedelta(days=1)
-    start = (before.replace(day=1) - relativedelta(months=HISTORY_MONTHS))
+    start = before.replace(day=1) - relativedelta(months=HISTORY_MONTHS)
     start = max(start, first_tx.replace(day=1))
     if start > end:
         return {}
     months = (end.year - start.year) * 12 + end.month - start.month + 1
-    rows = db.execute(
-        select(Transaction.category_id, func.sum(Transaction.amount))
-        .where(
-            Transaction.user_id == user_id,
-            Transaction.kind == TransactionKind.EXPENSE,
-            Transaction.recurrence_id.is_(None),
-            Transaction.date >= start,
-            Transaction.date <= end,
-        )
-        .group_by(Transaction.category_id)
-    ).all()
-    return {cid: Decimal(total) / months for cid, total in rows}
-
-
-def _variable_spent(db: Session, user_id: int, start: date, end: date) -> dict[int | None, Decimal]:
-    rows = db.execute(
-        select(Transaction.category_id, func.sum(Transaction.amount))
-        .where(
-            Transaction.user_id == user_id,
-            Transaction.kind == TransactionKind.EXPENSE,
-            Transaction.recurrence_id.is_(None),
-            Transaction.date >= start,
-            Transaction.date <= end,
-        )
-        .group_by(Transaction.category_id)
-    ).all()
-    return {cid: Decimal(total) for cid, total in rows}
+    return {cid: total / months for cid, total in _variable_totals(db, user_id, start, end).items()}
 
 
 def month_forecast(db: Session, user: User, year: int, month: int, today: date | None = None) -> MonthForecast:
@@ -124,7 +136,7 @@ def month_forecast(db: Session, user: User, year: int, month: int, today: date |
     variable: dict[int | None, Decimal] = defaultdict(lambda: ZERO)
     if remaining_days:
         averages = variable_monthly_average(db, user.id, min(start, today.replace(day=1)))
-        already = _variable_spent(db, user.id, start, end) if today >= start else {}
+        already = _variable_totals(db, user.id, start, end) if today >= start else {}
         for cid, avg in averages.items():
             estimate = avg * remaining_days / days_in_month
             # Não prever além da média do mês se o usuário já gastou parte dela.
