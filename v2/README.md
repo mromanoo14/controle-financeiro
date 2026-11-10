@@ -38,18 +38,19 @@ A estimativa variável usa a média de cada departamento nos últimos 3 meses, p
 
 ### 1. Backend
 
-Pré-requisitos: Python 3.12+ e Docker (para o PostgreSQL).
+Pré-requisito: Python 3.12 ou mais novo (no Windows, marque "Add python.exe to PATH" ao instalar).
 
 ```bash
 cd v2/backend
-cp .env.example .env
-docker compose up -d db
+cp .env.example .env           # no Windows: copy .env.example .env
 python -m venv .venv
 source .venv/bin/activate      # no Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
+
+O `.env` de exemplo usa SQLite (um arquivo `dev.db` local), então não precisa instalar banco de dados para testar. Para usar PostgreSQL, rode `docker compose up -d db` e troque o `DATABASE_URL` conforme o comentário no `.env`.
 
 A documentação interativa da API fica em http://localhost:8000/docs.
 
@@ -68,8 +69,10 @@ Pré-requisitos: [Flutter](https://docs.flutter.dev/get-started/install) 3.47 ou
 ```bash
 cd v2/app
 flutter pub get
-flutter run
+flutter run -d chrome --web-port 8080
 ```
+
+Use a porta 8080 no Chrome: é a que o backend libera por padrão (`CORS_ORIGINS`).
 
 Por padrão, o app procura a API em `http://10.0.2.2:8000` no emulador Android e em `http://localhost:8000` nas outras plataformas. Num celular de verdade, use o IP do seu computador na rede:
 
