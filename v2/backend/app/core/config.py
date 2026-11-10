@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://financeiro:financeiro@localhost:5432/controle_financeiro"
 
     # Segurança
-    secret_key: str = Field(default="troque-esta-chave-em-producao", min_length=16)
+    secret_key: str = Field(default="troque-esta-chave-antes-de-publicar-o-app")
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 dias
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8080"]
 
@@ -30,6 +30,16 @@ class Settings(BaseSettings):
     pluggy_base_url: str = "https://api.pluggy.ai"
     open_finance_webhook_secret: str = ""
 
+    @field_validator("database_url")
+    @classmethod
+    def use_psycopg_driver(cls, url: str) -> str:
+        # Render, Railway e Heroku entregam "postgres://" ou "postgresql://";
+        # o SQLAlchemy precisa saber que o driver é o psycopg 3.
+        for prefix in ("postgres://", "postgresql://"):
+            if url.startswith(prefix):
+                return "postgresql+psycopg://" + url[len(prefix):]
+        return url
+
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
@@ -38,6 +48,6 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     settings = Settings()
-    if settings.is_production and settings.secret_key == "troque-esta-chave-em-producao":
+    if settings.is_production and settings.secret_key == "troque-esta-chave-antes-de-publicar-o-app":
         raise RuntimeError("Defina SECRET_KEY no ambiente de produção.")
     return settings

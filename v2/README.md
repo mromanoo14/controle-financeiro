@@ -38,18 +38,19 @@ A estimativa variável usa a média de cada departamento nos últimos 3 meses, p
 
 ### 1. Backend
 
-Pré-requisitos: Python 3.12+ e Docker (para o PostgreSQL).
+Pré-requisito: Python 3.12 ou mais novo (no Windows, marque "Add python.exe to PATH" ao instalar).
 
 ```bash
 cd v2/backend
-cp .env.example .env
-docker compose up -d db
+cp .env.example .env           # no Windows: copy .env.example .env
 python -m venv .venv
 source .venv/bin/activate      # no Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
+
+O `.env` de exemplo usa SQLite (um arquivo `dev.db` local), então não precisa instalar banco de dados para testar. Para usar PostgreSQL, rode `docker compose up -d db` e troque o `DATABASE_URL` conforme o comentário no `.env`.
 
 A documentação interativa da API fica em http://localhost:8000/docs.
 
@@ -68,8 +69,10 @@ Pré-requisitos: [Flutter](https://docs.flutter.dev/get-started/install) 3.47 ou
 ```bash
 cd v2/app
 flutter pub get
-flutter run
+flutter run -d chrome --web-port 8080
 ```
+
+Use a porta 8080 no Chrome: é a que o backend libera por padrão (`CORS_ORIGINS`).
 
 Por padrão, o app procura a API em `http://10.0.2.2:8000` no emulador Android e em `http://localhost:8000` nas outras plataformas. Num celular de verdade, use o IP do seu computador na rede:
 
@@ -107,6 +110,22 @@ storeFile=/home/voce/upload-keystore.jks
 ```
 
 Sem esse arquivo, o build de release é assinado com a chave de debug, que serve só para testes.
+
+## Publicando na internet
+
+**Backend no Render:** o arquivo `render.yaml` na raiz do repositório descreve a API e o banco.
+1. Crie uma conta em https://render.com e conecte o GitHub.
+2. Clique em **New → Blueprint**, escolha este repositório e confirme. O Render cria o banco, gera a `SECRET_KEY` e publica a API.
+3. Copie o endereço da API (ex.: `https://controle-financeiro-api.onrender.com`) e teste `/health` nele.
+
+O plano gratuito serve para testar: a API "dorme" depois de 15 minutos sem uso, e o banco gratuito expira em 30 dias. Para uso real, troque no `render.yaml` para `starter` (API) e `basic-256mb` (banco), por cerca de US$ 13 por mês.
+
+**App web no GitHub Pages** (abre no Safari do iPhone e no Chrome):
+1. Em *Settings → Pages*, escolha **Source: GitHub Actions**.
+2. Em *Settings → Secrets and variables → Actions → Variables*, crie `API_URL` com o endereço da API do Render.
+3. A cada atualização da `main`, o workflow publica o app em `https://<usuario>.github.io/<repositorio>/`.
+
+No iPhone, abra o endereço no Safari, toque em **Compartilhar → Adicionar à Tela de Início**, e ele passa a abrir como um app.
 
 ## Antes de vender: o que ainda falta
 
