@@ -54,6 +54,21 @@ jobs:
         env:
           DATABASE_URL: postgresql+psycopg://financeiro:financeiro@localhost:5432/cf_test
 
+  # Mesmo ambiente de quem roda no Windows: garante que tudo instala sem compilador.
+  backend-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: v2/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.15"
+          allow-prereleases: true
+      - run: "pip install --only-binary=:all: -r requirements-dev.txt"
+      - run: pytest -q
+
   app:
     runs-on: ubuntu-latest
     defaults:
