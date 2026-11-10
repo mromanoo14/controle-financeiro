@@ -7,7 +7,7 @@ name: v2
 
 on:
   push:
-    paths: ["v2/**", ".github/workflows/v2.yml"]
+    paths: ["v2/**", ".github/workflows/v2.yml", "render.yaml"]
   pull_request:
     paths: ["v2/**", ".github/workflows/v2.yml"]
   workflow_dispatch:
@@ -127,3 +127,42 @@ jobs:
         with:
           name: controle-financeiro-windows
           path: v2/app/build/windows/x64/runner/Release/
+
+  # Publica o app web no GitHub Pages (abre no Safari do iPhone e no Chrome).
+  # Só roda na branch main. Requer:
+  #   - Settings > Pages > Source: "GitHub Actions"
+  #   - variável API_URL com o endereço da API publicada (ex.: Render)
+  web:
+    needs: app
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    defaults:
+      run:
+        working-directory: v2/app
+    steps:
+      - name: Conferir variável API_URL
+        run: |
+          if [ -z "${{ vars.API_URL }}" ]; then
+            echo "::error::Crie a variável API_URL em Settings > Secrets and variables > Actions > Variables."
+            exit 1
+          fi
+        working-directory: .
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - name: Gerar app web
+        run: flutter build web --release --base-href "/${{ github.event.repository.name }}/" --dart-define=API_URL=${{ vars.API_URL }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: v2/app/build/web
+      - id: deploy
+        uses: actions/deploy-pages@v4

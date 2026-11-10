@@ -111,6 +111,22 @@ storeFile=/home/voce/upload-keystore.jks
 
 Sem esse arquivo, o build de release é assinado com a chave de debug, que serve só para testes.
 
+## Publicando na internet
+
+**Backend no Render:** o arquivo `render.yaml` na raiz do repositório descreve a API e o banco.
+1. Crie uma conta em https://render.com e conecte o GitHub.
+2. Clique em **New → Blueprint**, escolha este repositório e confirme. O Render cria o banco, gera a `SECRET_KEY` e publica a API.
+3. Copie o endereço da API (ex.: `https://controle-financeiro-api.onrender.com`) e teste `/health` nele.
+
+O plano gratuito serve para testar: a API "dorme" depois de 15 minutos sem uso, e o banco gratuito expira em 30 dias. Para uso real, troque no `render.yaml` para `starter` (API) e `basic-256mb` (banco), por cerca de US$ 13 por mês.
+
+**App web no GitHub Pages** (abre no Safari do iPhone e no Chrome):
+1. Em *Settings → Pages*, escolha **Source: GitHub Actions**.
+2. Em *Settings → Secrets and variables → Actions → Variables*, crie `API_URL` com o endereço da API do Render.
+3. A cada atualização da `main`, o workflow publica o app em `https://<usuario>.github.io/<repositorio>/`.
+
+No iPhone, abra o endereço no Safari, toque em **Compartilhar → Adicionar à Tela de Início**, e ele passa a abrir como um app.
+
 ## Antes de vender: o que ainda falta
 
 1. **Publicar o backend** com HTTPS: Railway, Render, Fly.io ou uma VPS, com PostgreSQL gerenciado. O `Dockerfile` já aplica as migrações ao subir. Em produção, defina `ENVIRONMENT=production`, gere uma `SECRET_KEY` forte e restrinja `CORS_ORIGINS`.

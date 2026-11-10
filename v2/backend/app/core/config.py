@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,6 +29,16 @@ class Settings(BaseSettings):
     pluggy_client_secret: str = ""
     pluggy_base_url: str = "https://api.pluggy.ai"
     open_finance_webhook_secret: str = ""
+
+    @field_validator("database_url")
+    @classmethod
+    def use_psycopg_driver(cls, url: str) -> str:
+        # Render, Railway e Heroku entregam "postgres://" ou "postgresql://";
+        # o SQLAlchemy precisa saber que o driver é o psycopg 3.
+        for prefix in ("postgres://", "postgresql://"):
+            if url.startswith(prefix):
+                return "postgresql+psycopg://" + url[len(prefix):]
+        return url
 
     @property
     def is_production(self) -> bool:
